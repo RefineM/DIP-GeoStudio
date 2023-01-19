@@ -10,7 +10,7 @@ namespace dip_1
     class cls_classify
     {
 
-        #region FCM
+        #region FCM 模糊C均值分类
         public double dist(int[,] X, double[,] C, int bands, int j, int i)//求向量欧氏距离
         {
             double dis = 0.0;
@@ -182,7 +182,7 @@ namespace dip_1
         }
         #endregion
 
-        #region K-means分类
+        #region K-means
         public void kmeans (Dataset dt,int classnum,string path)
         {
             cls_basicfunc bc = new cls_basicfunc();
@@ -371,329 +371,329 @@ namespace dip_1
 
         #endregion
 
-        #region GMM(1)
-        public double[] initialization_pi(int class_num)//初始化权重pi矩阵
-        {
-            double[] pi = new double[class_num];
-            Random ran = new Random();
-            double sum = 0.0;
-            for (int i=0;i<class_num;i++)//随机数
-            {
-                pi[i] = ran.Next(0,100);
-                sum += pi[i];
-            }
-            for (int i = 0; i < class_num; i++)//概率归一化
-            {
-                pi[i] /=sum;
-            }
-            return pi;
-        }
-        public double[,] initialization_miu(Dataset dt, int class_num)//初始化均值miu矩阵
-        {
-            int bands = dt.RasterCount;
-            double[,] miu = new double[class_num,bands];
-            Random ran = new Random();
+        #region GMM 高斯混合模型(1) 待更正
+        //public double[] initialization_pi(int class_num)//初始化权重pi矩阵
+        //{
+        //    double[] pi = new double[class_num];
+        //    Random ran = new Random();
+        //    double sum = 0.0;
+        //    for (int i=0;i<class_num;i++)//随机数
+        //    {
+        //        pi[i] = ran.Next(0,100);
+        //        sum += pi[i];
+        //    }
+        //    for (int i = 0; i < class_num; i++)//概率归一化
+        //    {
+        //        pi[i] /=sum;
+        //    }
+        //    return pi;
+        //}
+        //public double[,] initialization_miu(Dataset dt, int class_num)//初始化均值miu矩阵
+        //{
+        //    int bands = dt.RasterCount;
+        //    double[,] miu = new double[class_num,bands];
+        //    Random ran = new Random();
 
-            //求图像各波段像素值范围
-            cls_basicfunc bc = new cls_basicfunc();
-            int[] min = bc.MaxMin(dt, "min");
-            int[] max = bc.MaxMin(dt, "max");
-            int[] range = new int[bands];
-            for(int i=0;i<bands;i++)
-            {
-                range[i] = max[i] - min[i];
-            }
+        //    //求图像各波段像素值范围
+        //    cls_basicfunc bc = new cls_basicfunc();
+        //    int[] min = bc.MaxMin(dt, "min");
+        //    int[] max = bc.MaxMin(dt, "max");
+        //    int[] range = new int[bands];
+        //    for(int i=0;i<bands;i++)
+        //    {
+        //        range[i] = max[i] - min[i];
+        //    }
 
-            //分配不同类的均值
-            for (int Class=0;Class<class_num;Class++)
-            {
-                for(int band=0;band<bands;band++)
-                {
-                    miu[Class, band] = min[band] + range[band] * ran.NextDouble();
-                }
-            }
-            return miu;
-        }
-        public Matrix<double> toMiuk(double[,] miu, int classflag, int bandnum)// 求出miu（k），即第k类的均值矩阵
-        {
-            var miuk = new DenseMatrix(bandnum, 1);
-            for (int i = 0; i < bandnum; i++)
-            {
-                miuk[i, 0] = miu[classflag, i];
-            }
-            return miuk;
-        }
-        public double[,,]initialization_sigma(Dataset dt, int class_num)//初始化方差sigma矩阵
-        {
-            int bands = dt.RasterCount;
-            double[,,] sigma = new double[class_num,bands,bands];
-            Random ran = new Random();
+        //    //分配不同类的均值
+        //    for (int Class=0;Class<class_num;Class++)
+        //    {
+        //        for(int band=0;band<bands;band++)
+        //        {
+        //            miu[Class, band] = min[band] + range[band] * ran.NextDouble();
+        //        }
+        //    }
+        //    return miu;
+        //}
+        //public Matrix<double> toMiuk(double[,] miu, int classflag, int bandnum)// 求出miu（k），即第k类的均值矩阵
+        //{
+        //    var miuk = new DenseMatrix(bandnum, 1);
+        //    for (int i = 0; i < bandnum; i++)
+        //    {
+        //        miuk[i, 0] = miu[classflag, i];
+        //    }
+        //    return miuk;
+        //}
+        //public double[,,]initialization_sigma(Dataset dt, int class_num)//初始化方差sigma矩阵
+        //{
+        //    int bands = dt.RasterCount;
+        //    double[,,] sigma = new double[class_num,bands,bands];
+        //    Random ran = new Random();
 
-            //求图像各波段间协方差
-            cls_basicfunc bc = new cls_basicfunc();
-            double [,]xfc =bc.xfc(dt);
+        //    //求图像各波段间协方差
+        //    cls_basicfunc bc = new cls_basicfunc();
+        //    double [,]xfc =bc.xfc(dt);
 
-            //初始化不同类的协方差
-            for (int Class = 0; Class < class_num; Class++)
-            {
-                for (int i = 0; i < bands; i++)
-                {
-                    for(int j= 0; j < bands; j++)
-                    {
-                        sigma[Class,i,j] = xfc[i,j]*ran.NextDouble();
-                    }
-                }
-            }
-            return sigma;
-        }
-        public Matrix<double> toSk(double[,,] sigma, int classflag, int bandnum)// 求出sigma(k),即第k类的协方差阵
-        {
-            var sk = new DenseMatrix(bandnum, bandnum);
-            for (int i = 0; i < bandnum; i++)
-            {
-                for (int j = 0; j < bandnum; j++)
-                {
-                    sk[i, j] = sigma[classflag, i,j];
-                }
-            }
-            return sk;
-        }
-        public Matrix<double> toXi(int [,]X , int pixelflag,int bandnum)// 求出Xi(i像素的所有band组成的向量)
-        {
-            var x = new DenseMatrix(bandnum,1);
-            for(int i=0;i<bandnum;i++)
-            {
-                x[i, 0] = X[pixelflag, i];
-            }
-            return x;
-        }
-        public double Gauss(Matrix<double>Xi, Matrix<double> miuk,Matrix<double>sigmak) //多维高斯概率密度分布函数
-        {
-            double N=0.0;
-            double a = 0.0, aa=0.0, aaa=0.0;
-            double num_zs = 0.0;
+        //    //初始化不同类的协方差
+        //    for (int Class = 0; Class < class_num; Class++)
+        //    {
+        //        for (int i = 0; i < bands; i++)
+        //        {
+        //            for(int j= 0; j < bands; j++)
+        //            {
+        //                sigma[Class,i,j] = xfc[i,j]*ran.NextDouble();
+        //            }
+        //        }
+        //    }
+        //    return sigma;
+        //}
+        //public Matrix<double> toSk(double[,,] sigma, int classflag, int bandnum)// 求出sigma(k),即第k类的协方差阵
+        //{
+        //    var sk = new DenseMatrix(bandnum, bandnum);
+        //    for (int i = 0; i < bandnum; i++)
+        //    {
+        //        for (int j = 0; j < bandnum; j++)
+        //        {
+        //            sk[i, j] = sigma[classflag, i,j];
+        //        }
+        //    }
+        //    return sk;
+        //}
+        //public Matrix<double> toXi(int [,]X , int pixelflag,int bandnum)// 求出Xi(i像素的所有band组成的向量)
+        //{
+        //    var x = new DenseMatrix(bandnum,1);
+        //    for(int i=0;i<bandnum;i++)
+        //    {
+        //        x[i, 0] = X[pixelflag, i];
+        //    }
+        //    return x;
+        //}
+        //public double Gauss(Matrix<double>Xi, Matrix<double> miuk,Matrix<double>sigmak) //多维高斯概率密度分布函数
+        //{
+        //    double N=0.0;
+        //    double a = 0.0, aa=0.0, aaa=0.0;
+        //    double num_zs = 0.0;
 
-            double d = (double)(Xi.RowCount);
+        //    double d = (double)(Xi.RowCount);
 
-            double b = sigmak.Determinant();
-            aa = Math.Sqrt(Math.Abs(b));
-            aaa = Math.Pow((2 * Math.PI), d / 2);
-            a = 1 / aaa / aa;
+        //    double b = sigmak.Determinant();
+        //    aa = Math.Sqrt(Math.Abs(b));
+        //    aaa = Math.Pow((2 * Math.PI), d / 2);
+        //    a = 1 / aaa / aa;
 
-            var zs = new DenseMatrix(1,1);
-            zs =(DenseMatrix)( -0.5 * (Xi - miuk).Transpose() * sigmak.Inverse() * (Xi - miuk));
-            num_zs = zs[0, 0];
+        //    var zs = new DenseMatrix(1,1);
+        //    zs =(DenseMatrix)( -0.5 * (Xi - miuk).Transpose() * sigmak.Inverse() * (Xi - miuk));
+        //    num_zs = zs[0, 0];
 
-            N = a * Math.Exp(num_zs);
+        //    N = a * Math.Exp(num_zs);
 
-            return N;
-        }
-        public double[,] posterP(Dataset dt, int[,]X, double[,]miu,double[,,]sigma,double [] pi,int class_num)//计算后验概率矩阵P
-        {
-            int pixels = dt.RasterXSize * dt.RasterYSize;
-            int bandnum = dt.RasterCount;
-            double[,] poster = new double[pixels,class_num];
+        //    return N;
+        //}
+        //public double[,] posterP(Dataset dt, int[,]X, double[,]miu,double[,,]sigma,double [] pi,int class_num)//计算后验概率矩阵P
+        //{
+        //    int pixels = dt.RasterXSize * dt.RasterYSize;
+        //    int bandnum = dt.RasterCount;
+        //    double[,] poster = new double[pixels,class_num];
 
-            for(int p=0;p<pixels;p++)
-            {
-                double N = 0.0;
-                double sum = 0.0;
-                Matrix<double> Xi = toXi(X,p,bandnum);
-          
-                for (int c=0;c<class_num;c++)
-                {
-                    Matrix<double> miuk = toMiuk(miu, c, bandnum);
-                    Matrix<double> simgak = toSk(sigma, c, bandnum);
-                    N = pi[c] * Gauss(Xi,miuk,simgak);
+        //    for(int p=0;p<pixels;p++)
+        //    {
+        //        double N = 0.0;
+        //        double sum = 0.0;
+        //        Matrix<double> Xi = toXi(X,p,bandnum);
 
-                    for (int cc = 0; cc < class_num; cc++)
-                    {
-                        Matrix<double> miukk = toMiuk(miu, c, bandnum);
-                        Matrix<double> simgakk = toSk(sigma, c, bandnum);
-                        N = pi[c] * Gauss(Xi, miukk, simgakk);
-                        sum += N;
-                    }
+        //        for (int c=0;c<class_num;c++)
+        //        {
+        //            Matrix<double> miuk = toMiuk(miu, c, bandnum);
+        //            Matrix<double> simgak = toSk(sigma, c, bandnum);
+        //            N = pi[c] * Gauss(Xi,miuk,simgak);
 
-                    poster[p, c] = N / sum;
-                }
-            }
+        //            for (int cc = 0; cc < class_num; cc++)
+        //            {
+        //                Matrix<double> miukk = toMiuk(miu, c, bandnum);
+        //                Matrix<double> simgakk = toSk(sigma, c, bandnum);
+        //                N = pi[c] * Gauss(Xi, miukk, simgakk);
+        //                sum += N;
+        //            }
 
-            return poster;
-            
-        }
-        public double[,] new_miu(Dataset dt,int[,]X,double[,]p,int class_num)//更新均值矩阵
-        {
-            int pixels = dt.RasterXSize * dt.RasterYSize;
-            int bands = dt.RasterCount;
-            double[,] new_miu = new double[class_num,bands];
+        //            poster[p, c] = N / sum;
+        //        }
+        //    }
 
-            for (int k = 0; k < class_num; k++)
-            {
-                double Nk = 0.0;
-                for (int i = 0; i < pixels; i++)
-                {
-                    Nk += p[i, k];
-                }
+        //    return poster;
 
-                for (int b = 0; b < bands; b++)
-                {
-                    double sum = 0.0;
-                    for (int i = 0; i < pixels; i++)
-                    {
-                         sum +=  p[i, k] * X[i,b];
-                    }
-                    new_miu[k, b] = 1 / Nk * sum;
-                }
-            }
-            return new_miu;
-        }
-        public double[] new_pi(Dataset dt, double[,] p, int class_num)//更新权重矩阵
-        {
-            int pixels = dt.RasterXSize * dt.RasterYSize;
-            double[] new_pi = new double[class_num];
+        //}
+        //public double[,] new_miu(Dataset dt,int[,]X,double[,]p,int class_num)//更新均值矩阵
+        //{
+        //    int pixels = dt.RasterXSize * dt.RasterYSize;
+        //    int bands = dt.RasterCount;
+        //    double[,] new_miu = new double[class_num,bands];
 
-            for (int k = 0; k < class_num; k++)
-            {
-                double Nk = 0.0;
-                for (int i = 0; i < pixels; i++)
-                {
-                    Nk += p[i, k];
-                }
-                new_pi[k] = Nk / pixels;
-            }
-            return new_pi;
-        }
-        public double[,,] new_sigma(Dataset dt, int[,] X, double[,] p, double[,]miu, int class_num)//更新协方差矩阵
-        {
-            int pixels = dt.RasterXSize * dt.RasterYSize;
-            int bands = dt.RasterCount;
-            double[,,] new_sigma = new double[class_num,bands,bands];
+        //    for (int k = 0; k < class_num; k++)
+        //    {
+        //        double Nk = 0.0;
+        //        for (int i = 0; i < pixels; i++)
+        //        {
+        //            Nk += p[i, k];
+        //        }
 
-            for(int k=0;k<class_num;k++)
-            {
-                double Nk = 0.0;
-                var miuk = toMiuk(miu, k, bands);
-                var sigmak = DenseMatrix.CreateDiagonal(bands,bands,0.0);
+        //        for (int b = 0; b < bands; b++)
+        //        {
+        //            double sum = 0.0;
+        //            for (int i = 0; i < pixels; i++)
+        //            {
+        //                 sum +=  p[i, k] * X[i,b];
+        //            }
+        //            new_miu[k, b] = 1 / Nk * sum;
+        //        }
+        //    }
+        //    return new_miu;
+        //}
+        //public double[] new_pi(Dataset dt, double[,] p, int class_num)//更新权重矩阵
+        //{
+        //    int pixels = dt.RasterXSize * dt.RasterYSize;
+        //    double[] new_pi = new double[class_num];
 
-                for (int i = 0; i < pixels; i++)//求Nk
-                {
-                    Nk += p[i, k];
-                }
+        //    for (int k = 0; k < class_num; k++)
+        //    {
+        //        double Nk = 0.0;
+        //        for (int i = 0; i < pixels; i++)
+        //        {
+        //            Nk += p[i, k];
+        //        }
+        //        new_pi[k] = Nk / pixels;
+        //    }
+        //    return new_pi;
+        //}
+        //public double[,,] new_sigma(Dataset dt, int[,] X, double[,] p, double[,]miu, int class_num)//更新协方差矩阵
+        //{
+        //    int pixels = dt.RasterXSize * dt.RasterYSize;
+        //    int bands = dt.RasterCount;
+        //    double[,,] new_sigma = new double[class_num,bands,bands];
 
-                for(int j=0;j<pixels;j++)//求sigma(k)
-                {
-                    var xi = toXi(X,j,bands);
-                    sigmak += (DenseMatrix)(1 / Nk * p[j, k] * (xi-miuk) * (xi - miuk).Transpose());
-                }
-               
-                for(int i=0;i<bands;i++)//求sigma
-                {
-                    for(int j=0;j<bands;j++)
-                    {
-                        new_sigma[k, i, j] = sigmak[i,j];
-                    }
-                }
-            }
-            return new_sigma;
-        }
-        public void GMM(Dataset dt,int class_num,int loop,string filepath)  // 混合高斯模型（GMM） 
-        {
-            cls_basicfunc bc = new cls_basicfunc();
-            List<int[]> data = bc.getvalue(dt);
-            
-            int pixels = data[0].Length;
-            int bands = data.Count;
+        //    for(int k=0;k<class_num;k++)
+        //    {
+        //        double Nk = 0.0;
+        //        var miuk = toMiuk(miu, k, bands);
+        //        var sigmak = DenseMatrix.CreateDiagonal(bands,bands,0.0);
 
-            // 构建光谱特征向量 [像元，波段号]
-            int[,] X = new int[pixels, bands];
-            for (int i = 0; i < pixels; i++)
-            {
-                for (int j = 0; j < bands; j++)
-                {
-                    X[i, j] = data[j][i];
-                }
-            }
+        //        for (int i = 0; i < pixels; i++)//求Nk
+        //        {
+        //            Nk += p[i, k];
+        //        }
 
-            //初始化参量
-            double[] pi = initialization_pi(class_num);
-            double[,] miu = initialization_miu(dt, class_num);
-            double[,,] sigma = initialization_sigma(dt,class_num);
+        //        for(int j=0;j<pixels;j++)//求sigma(k)
+        //        {
+        //            var xi = toXi(X,j,bands);
+        //            sigmak += (DenseMatrix)(1 / Nk * p[j, k] * (xi-miuk) * (xi - miuk).Transpose());
+        //        }
 
-            //迭代
-            double[,] p = new double[pixels, class_num];
-            for(int i=0;i<loop;i++)
-            {
-                //计算后验概率p
-                p = posterP(dt,X,miu,sigma,pi,class_num);
-                // 计算新的参量
-                miu = new_miu(dt, X, p, class_num);
-                sigma = new_sigma(dt, X, p, miu, class_num);
-                pi = new_pi(dt, p, class_num);
-                
-                double sum = 0.0;
-                for(int j=0;j<class_num;j++)
-                {
-                    sum += pi[j];
-                }
-                for (int j = 0; j < class_num; j++)
-                {
-                    pi[j]/= sum ;
-                }
-            }
+        //        for(int i=0;i<bands;i++)//求sigma
+        //        {
+        //            for(int j=0;j<bands;j++)
+        //            {
+        //                new_sigma[k, i, j] = sigmak[i,j];
+        //            }
+        //        }
+        //    }
+        //    return new_sigma;
+        //}
+        //public void GMM(Dataset dt,int class_num,int loop,string filepath)  // 混合高斯模型（GMM） 
+        //{
+        //    cls_basicfunc bc = new cls_basicfunc();
+        //    List<int[]> data = bc.getvalue(dt);
 
-            //获取每个像元所属的类别
-            int[] classes = new int[pixels];
-            for (int j = 0; j < pixels; j++)
-            {
-                int classflag = 0;
-                double max = p[j, 0];
-                for (int c = 1; c < class_num; c++)
-                {
-                    if (p[j, c] > max)
-                    {
-                        max = p[j, c];
-                        classflag = c;
-                    }
-                }
-                classes[j] = classflag;
-            }
+        //    int pixels = data[0].Length;
+        //    int bands = data.Count;
 
-            //给分类后图像赋色(灰度图)
-            int[] value = new int[pixels];//赋值后的每个像素值的集合
-            if (class_num == 2)
-            {
-                for (int j = 0; j < pixels; j++)
-                {
-                    if (classes[j] == 0)
-                        value[j] = 0;
-                    if (classes[j] == 1)
-                        value[j] = 255;
-                }
-            }
+        //    // 构建光谱特征向量 [像元，波段号]
+        //    int[,] X = new int[pixels, bands];
+        //    for (int i = 0; i < pixels; i++)
+        //    {
+        //        for (int j = 0; j < bands; j++)
+        //        {
+        //            X[i, j] = data[j][i];
+        //        }
+        //    }
 
-            int[] temp1 = new int[class_num];
-            temp1[0] = 0;
-            temp1[class_num - 1] = 255;
-            if (class_num > 2)
-            {
-                for (int i = 1; i < class_num - 1; i++)
-                {
-                    temp1[i] = temp1[i - 1] + 256 / (class_num - 1);
-                }
+        //    //初始化参量
+        //    double[] pi = initialization_pi(class_num);
+        //    double[,] miu = initialization_miu(dt, class_num);
+        //    double[,,] sigma = initialization_sigma(dt,class_num);
 
-                for (int j = 0; j < pixels; j++)
-                {
-                    value[j] = temp1[classes[j]];
-                }
-            }
+        //    //迭代
+        //    double[,] p = new double[pixels, class_num];
+        //    for(int i=0;i<loop;i++)
+        //    {
+        //        //计算后验概率p
+        //        p = posterP(dt,X,miu,sigma,pi,class_num);
+        //        // 计算新的参量
+        //        miu = new_miu(dt, X, p, class_num);
+        //        sigma = new_sigma(dt, X, p, miu, class_num);
+        //        pi = new_pi(dt, p, class_num);
 
-            cls_saveFiles sf = new cls_saveFiles();
-            List<int[]> dns = new List<int[]> { value };
-            sf.SaveFromDataset(dt, filepath, dns, false);
-        }
+        //        double sum = 0.0;
+        //        for(int j=0;j<class_num;j++)
+        //        {
+        //            sum += pi[j];
+        //        }
+        //        for (int j = 0; j < class_num; j++)
+        //        {
+        //            pi[j]/= sum ;
+        //        }
+        //    }
+
+        //    //获取每个像元所属的类别
+        //    int[] classes = new int[pixels];
+        //    for (int j = 0; j < pixels; j++)
+        //    {
+        //        int classflag = 0;
+        //        double max = p[j, 0];
+        //        for (int c = 1; c < class_num; c++)
+        //        {
+        //            if (p[j, c] > max)
+        //            {
+        //                max = p[j, c];
+        //                classflag = c;
+        //            }
+        //        }
+        //        classes[j] = classflag;
+        //    }
+
+        //    //给分类后图像赋色(灰度图)
+        //    int[] value = new int[pixels];//赋值后的每个像素值的集合
+        //    if (class_num == 2)
+        //    {
+        //        for (int j = 0; j < pixels; j++)
+        //        {
+        //            if (classes[j] == 0)
+        //                value[j] = 0;
+        //            if (classes[j] == 1)
+        //                value[j] = 255;
+        //        }
+        //    }
+
+        //    int[] temp1 = new int[class_num];
+        //    temp1[0] = 0;
+        //    temp1[class_num - 1] = 255;
+        //    if (class_num > 2)
+        //    {
+        //        for (int i = 1; i < class_num - 1; i++)
+        //        {
+        //            temp1[i] = temp1[i - 1] + 256 / (class_num - 1);
+        //        }
+
+        //        for (int j = 0; j < pixels; j++)
+        //        {
+        //            value[j] = temp1[classes[j]];
+        //        }
+        //    }
+
+        //    cls_saveFiles sf = new cls_saveFiles();
+        //    List<int[]> dns = new List<int[]> { value };
+        //    sf.SaveFromDataset(dt, filepath, dns, false);
+        //}
         #endregion
 
-        #region GMM(2)
+        #region GMM 高斯混合模型(2) 可用
 
         //初始化均值矩阵
         public double[,] Initialization_miu(Dataset dt, int K)
